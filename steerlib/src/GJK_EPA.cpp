@@ -184,7 +184,7 @@ void EPA(float& return_penetration_depth, Util::Vector& return_penetration_vecto
 	Util::Vector edge_normal = {0.0f, 0.0f, 0.0f};
 	int edge_ind = 0;
 
-	const double TOLERANCE = 0.1f;
+	const double TOLERANCE = 0.01f;
 	double dist = 0.0f;
 
 	do {
