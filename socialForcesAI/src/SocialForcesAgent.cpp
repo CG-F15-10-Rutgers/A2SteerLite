@@ -275,7 +275,7 @@ Util::Vector SocialForcesAgent::calcProximityForce(float dt)
 			Util::Vector away_obs_tmp = normalize(position() - min_stuff.second);
 
 			away_obs = away_obs + (away_obs_tmp * (_SocialForcesParams.sf_wall_a * exp(
-					(((this->radius())-(this->position()-min_stuff.second).length())/_SocialForcesParams.sf_wall_b)
+					((this->radius()-(this->position() - min_stuff.second).length())/_SocialForcesParams.sf_wall_b)
 				)));
 		}
 	}
@@ -302,10 +302,14 @@ Util::Vector SocialForcesAgent::calcRepulsionForce(float dt)
 	return calcWallRepulsionForce(dt) + (_SocialForcesParams.sf_agent_repulsion_importance * calcAgentRepulsionForce(dt));
 }
 
+Util::Vector SocialForcesAgent::calcAgentTangent(Util::Vector normal_line){
+
+	Util::Vector tangent = Util::Vector(normal_line.z, 0, -normal_line.x);
+	return normalize(tangent);
+}
 
 Util::Vector SocialForcesAgent::calcAgentRepulsionForce(float dt)
 {
-	//std::cerr<<"<<<calcAgentRepulsionForce>>> Please Implement my body\n";
 	Util::Vector agent_rep_force = Util::Vector(0,0,0);
     std::set<SteerLib::SpatialDatabaseItemPtr> _neighbors;
 	gSpatialDatabase->getItemsInRange(_neighbors,
@@ -327,7 +331,10 @@ Util::Vector SocialForcesAgent::calcAgentRepulsionForce(float dt)
 
 		if ((id() != tmp_agent->id()) && (tmp_agent->computePenetration(this->position(), this->radius()) > 0.000001)) {
 
-			 agent_rep_force = agent_rep_force + (tmp_agent->computePenetration(this->position(), this->radius()) * _SocialForcesParams.sf_agent_body_force * normalize(position() - tmp_agent->position()));
+			 agent_rep_force = agent_rep_force + (tmp_agent->computePenetration(this->position(), this->radius()) * _SocialForcesParams.sf_agent_body_force * normalize(position() - tmp_agent->position()) * dt);
+
+			 Util::Vector agent_tangent = calcAgentTangent(position() - tmp_agent->position());
+			 agent_rep_force = agent_rep_force + (tmp_agent->computePenetration(this->position(), this->radius()) * _SocialForcesParams.sf_sliding_friction_force * dot(velocity(), agent_tangent) * dt) * agent_tangent;
 
 		}
 	}
@@ -337,7 +344,6 @@ Util::Vector SocialForcesAgent::calcAgentRepulsionForce(float dt)
 
 Util::Vector SocialForcesAgent::calcWallRepulsionForce(float dt)
 {
-    //std::cerr<<"<<<calcWallRepulsionForce>>> Please Implement my body\n";
 	Util::Vector wall_rep_force = Util::Vector(0,0,0);
 	std::set<SteerLib::SpatialDatabaseItemPtr> _neighbors;
 	gSpatialDatabase->getItemsInRange(_neighbors,
@@ -364,9 +370,9 @@ Util::Vector SocialForcesAgent::calcWallRepulsionForce(float dt)
 
 			std::pair<float, Util::Point> min_stuff = minimum_distance(wall_line.first, wall_line.second, position());
 
-			wall_rep_force = wall_normal * (min_stuff.first * radius()) * _SocialForcesParams.sf_body_force;
+			wall_rep_force = wall_rep_force + (wall_normal * (min_stuff.first * radius()) * _SocialForcesParams.sf_body_force * dt);
 			
-			return wall_rep_force;			 
+			wall_rep_force = wall_rep_force + tmp_ob->computePenetration(this->position(), this->radius()) * _SocialForcesParams.sf_sliding_friction_force * dot(velocity(), rightSideInXZPlane(wall_normal)) * rightSideInXZPlane(wall_normal) * dt;		 
 		}
 	}
 

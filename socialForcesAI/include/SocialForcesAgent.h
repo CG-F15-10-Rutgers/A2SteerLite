@@ -111,6 +111,7 @@ class SocialForcesAgent : public SteerLib::AgentInterface
 
 
         void calcNextStep(float dt);
+        Util::Vector calcAgentTangent(Util::Vector normal_line);
         Util::Vector calcRepulsionForce(float dt);
         Util::Vector calcProximityForce(float dt);
         Util::Vector calcGoalForce(Util::Vector,float);
