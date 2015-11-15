@@ -19,12 +19,12 @@ namespace SteerLib
 
 	/*
 		@function The AStarPlannerNode class gives a suggested container to build your search tree nodes.
-		@attributes 
+		@attributes
 		f : the f value of the node
 		g : the cost from the start, for the node
 		point : the point in (x,0,z) space that corresponds to the current node
 		parent : the pointer to the parent AStarPlannerNode, so that retracing the path is possible.
-		@operators 
+		@operators
 		The greater than, less than and equals operator have been overloaded. This means that objects of this class can be used with these operators. Change the functionality of the operators depending upon your implementation
 
 	*/
@@ -33,13 +33,20 @@ namespace SteerLib
 			double f;
 			double g;
 			Util::Point point;
-			AStarPlannerNode* parent;
-			AStarPlannerNode(Util::Point _point, double _g, double _f, AStarPlannerNode* _parent)
+			int parent_ind;
+			AStarPlannerNode()
+			{
+				f = 0.0f;
+				point = {0.0f, 0.0f, 0.0f};
+				g = 0.0f;
+				parent_ind = -1;
+			}
+			AStarPlannerNode(Util::Point _point, double _g, double _f, int _parent)
 			{
 				f = _f;
 				point = _point;
 				g = _g;
-				parent = _parent;
+				parent_ind = _parent;
 			}
 			bool operator<(AStarPlannerNode other) const
 		    {
@@ -56,7 +63,7 @@ namespace SteerLib
 
 	};
 
-	
+
 
 	class STEERLIB_API AStarPlanner{
 		public:
@@ -96,6 +103,14 @@ namespace SteerLib
 			*/
 
 			bool computePath(std::vector<Util::Point>& agent_path, Util::Point start, Util::Point goal, SteerLib::GridDatabase2D * _gSpatialDatabase, bool append_to_path = false);
+
+			double manhattan_dist(Util::Point n, Util::Point g);
+			double euclidean_dist(Util::Point n, Util::Point g);
+			int get_lowest_f(std::vector<AStarPlannerNode> vec);
+			std::vector<AStarPlannerNode> get_neighbors(SteerLib::GridDatabase2D *grid, std::vector<AStarPlannerNode> closed, int ind);
+			int close_node(std::vector<AStarPlannerNode>& open, std::vector<AStarPlannerNode>& closed, int ind);
+			int find_node(std::vector<AStarPlannerNode> vec, AStarPlannerNode n);
+			int recreate_path(std::vector<Util::Point>& path, std::vector<AStarPlannerNode> closed, int ind);
 		private:
 			SteerLib::GridDatabase2D * gSpatialDatabase;
 	};
