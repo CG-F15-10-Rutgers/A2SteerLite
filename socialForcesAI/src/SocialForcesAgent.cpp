@@ -1,3 +1,4 @@
+
 //
 // Copyright (c) 2014-2015 VaHiD aZiZi
 //
@@ -91,12 +92,12 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	Util::AxisAlignedBox oldBounds(_position.x-_radius, _position.x+_radius, 0.0f, 0.5f, _position.z-_radius, _position.z+_radius);
 
 	// initialize the agent based on the initial conditions
-	/*
-	position_ = Vector2(initialConditions.position.x, initialConditions.position.z);
-	radius_ = initialConditions.radius;
-	velocity_ = normalize(Vector2(initialConditions.direction.x, initialConditions.direction.z));
-	velocity_ = velocity_ * initialConditions.speed;
-*/
+	
+	//position_ = Vector2(initialConditions.position.x, initialConditions.position.z);
+	//radius_ = initialConditions.radius;
+	//velocity_ = normalize(Vector2(initialConditions.direction.x, initialConditions.direction.z));
+	//velocity_ = velocity_ * initialConditions.speed;
+
 	// initialize the agent based on the initial conditions
 	_position = initialConditions.position;
 	_forward = normalize(initialConditions.direction);
@@ -289,7 +290,7 @@ Vector SocialForcesAgent::calcGoalForce(Vector _goalDirection, float _dt)
 {
 	Util::Vector pref_force = ((_goalDirection * PREFERED_SPEED) - velocity())/_dt;
 
-    return pref_force;
+    return pref_force/4;
 }
 
 
