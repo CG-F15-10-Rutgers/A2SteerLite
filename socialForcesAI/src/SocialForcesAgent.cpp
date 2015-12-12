@@ -292,7 +292,7 @@ Vector SocialForcesAgent::calcGoalForce(Vector _goalDirection, float _dt)
 {
 	Util::Vector pref_force = ((_goalDirection * PREFERED_SPEED) - velocity())/_dt;
 
-    return pref_force;
+    return (pref_force);
 }
 
 
@@ -789,8 +789,8 @@ void SocialForcesAgent::updateLocalTarget()
 			this->_currentLocalTarget = tmpTarget;
 		}
 	}
-	if (j == 0)
-		std::cout<<"updateLocalTarget to goal : "<<tmpTarget<<", back is : "<<this->_goalQueue.front().targetLocation<<", current is : "<<position()<<"\n";
+/*	if (j == 0)
+		std::cout<<"updateLocalTarget to goal : "<<tmpTarget<<", back is : "<<this->_goalQueue.front().targetLocation<<", current is : "<<position()<<"\n";*/
 }
 
 bool SocialForcesAgent::computeAgentPath(std::vector<Util::Point>& agent_path, Util::Point start_pos) {
@@ -801,11 +801,11 @@ bool SocialForcesAgent::computeAgentPath(std::vector<Util::Point>& agent_path, U
 		SteerLib::AgentGoalInfo goal_pt = _goalQueue.front();
 
 //		std::cout<<"\n initital _goalQueue : "<<_goalQueue.front().targetLocation<<",";
-		while (!_goalQueue.empty()) {
+/*		while (!_goalQueue.empty()) {
 			_goalQueue.pop();
 			std::cout<<_goalQueue.front().targetLocation<<",";
 		}
-		std::cout<<"\n";
+		std::cout<<"\n";*/
 //		std::cout<<"goal queue emptied\n";
 		SteerLib::AgentGoalInfo path_pt;
 		for(int i=0; i < agent_path.size(); i++){
