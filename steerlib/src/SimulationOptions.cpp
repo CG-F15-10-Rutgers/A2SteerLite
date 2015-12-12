@@ -152,7 +152,7 @@ using namespace Util;
 //====================================
 // GRID DATABASE DEFAULTS
 //====================================
-#define DEFAULT_MAX_ITEMS_PER_GRID_CELL 7
+#define DEFAULT_MAX_ITEMS_PER_GRID_CELL 15
 #define DEFAULT_GRID_SIZE_X 200.0f
 #define DEFAULT_GRID_SIZE_Z 200.0f
 #define DEFAULT_NUM_GRID_CELLS_X 200

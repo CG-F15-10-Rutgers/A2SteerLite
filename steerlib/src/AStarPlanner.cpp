@@ -18,7 +18,7 @@
 
 #define COLLISION_COST  1000
 #define GRID_STEP  1
-#define OBSTACLE_CLEARANCE 1
+#define OBSTACLE_CLEARANCE 0
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
 #define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
 
@@ -43,15 +43,34 @@ namespace SteerLib
 		z_range_max = MIN(z+OBSTACLE_CLEARANCE, gSpatialDatabase->getNumCellsZ());
 
 
+		/*x_range_min = MAX(x-OBSTACLE_CLEARANCE, gSpatialDatabase->getOriginX());
+		x_range_max = MIN(x+OBSTACLE_CLEARANCE, gSpatialDatabase->getNumCellsX() + gSpatialDatabase->getOriginX());
+
+		z_range_min = MAX(z-OBSTACLE_CLEARANCE, gSpatialDatabase->getOriginZ());
+		z_range_max = MIN(z+OBSTACLE_CLEARANCE, gSpatialDatabase->getNumCellsZ() + gSpatialDatabase->getOriginZ());
+*/
+
 		for (int i = x_range_min; i<=x_range_max; i+=GRID_STEP)
 		{
 			for (int j = z_range_min; j<=z_range_max; j+=GRID_STEP)
 			{
 				int index = gSpatialDatabase->getCellIndexFromGridCoords( i, j );
-				traversal_cost += gSpatialDatabase->getTraversalCost ( index );
+				//std::cout<<"Index : "<<index<<"\n";
+				if (index>=0)
+					traversal_cost += gSpatialDatabase->getTraversalCost ( index );
+				else
+					traversal_cost += 1000.1;
 
 			}
 		}
+
+		/*for (int i = x-OBSTACLE_CLEARANCE; i <= x+OBSTACLE_CLEARANCE; i++) {
+			for (int j = z-OBSTACLE_CLEARANCE; j <= z+OBSTACLE_CLEARANCE; j++) {
+				int index = gSpatialDatabase->getCellIndexFromGridCoords( i, j );
+				if (index >= 0)
+					traversal_cost += gSpatialDatabase->getTraversalCost ( index );
+			}
+		}*/
 
 		if ( traversal_cost > COLLISION_COST )
 			return false;
@@ -114,19 +133,20 @@ namespace SteerLib
 
 		/* CHANGE ME: change this for assignment submission
 		 * change to 1.414 */
-		diag_cost = 1.0f;
-		for (int x = -1; x <= 1; x++) {
-			float xpos = closed[ind].point.x + x*grid->getCellSizeX();
-			if (xpos < grid->getOriginX() || xpos > (grid->getOriginX()+grid->getGridSizeX()))
-				continue;
+		diag_cost = 1.414f;
+
+/*		for (int x = -1; x <= 1; x++) {
+			float xpos = closed[ind].point.x + x;//*grid->getCellSizeX();
+			//if (xpos < grid->getOriginX() || xpos > (grid->getOriginX()+grid->getGridSizeX()))
+			//	continue;
 			for (int z = -1; z <= 1; z++) {
 				if (x == 0 && z == 0)
 					continue;
-				float zpos = closed[ind].point.z + z*grid->getCellSizeZ();
-				if (zpos < grid->getOriginZ() || zpos > (grid->getOriginZ()+grid->getGridSizeZ()))
-					continue;
+				float zpos = closed[ind].point.z + z;//*grid->getCellSizeZ();
+				//if (zpos < grid->getOriginZ() || zpos > (grid->getOriginZ()+grid->getGridSizeZ()))
+				//	continue;
 				int grid_ind = grid->getCellIndexFromLocation(xpos, zpos);
-				if (canBeTraversed(grid_ind)) {
+				if ((grid_ind >=0 ) && (canBeTraversed(grid_ind))) {
 					AStarPlannerNode nbr;
 					nbr.point = {xpos, 0.0f, zpos};
 					if (x != 0 || z != 0)
@@ -137,6 +157,34 @@ namespace SteerLib
 				}
 			}
 		}
+		*/
+		float xpos = closed[ind].point.x;
+		float zpos = closed[ind].point.z;
+
+        int start_x = MAX((xpos-1),gSpatialDatabase->getOriginX());
+        int end_x = MIN((xpos+1), gSpatialDatabase->getNumCellsX() + gSpatialDatabase->getOriginX());
+
+        int start_z = MAX((zpos-1), gSpatialDatabase->getOriginZ());
+        int end_z = MIN((zpos+1), gSpatialDatabase->getNumCellsZ() + gSpatialDatabase->getOriginZ());
+
+        for (int i = start_x; i <= end_x; ++i) {
+            for (int j = start_z; j <= end_z; ++j) {
+            	if (i==xpos && j==zpos)
+            		continue;
+            	int grid_ind = grid->getCellIndexFromLocation(i, j);
+            	if ((grid_ind >=0 ) && (canBeTraversed(grid_ind))) {
+					AStarPlannerNode nbr;
+					nbr.point = Util::Point(i, 0, j);
+					if (fabs(xpos-i) == 0 && fabs(zpos-j) == 0)
+						nbr.g = closed[ind].g + diag_cost;
+					else
+						nbr.g = closed[ind].g + 1.0f;
+					nbrs.push_back(nbr);
+				}
+            }
+        }
+
+
 		return nbrs;
 	}
 
@@ -190,7 +238,7 @@ namespace SteerLib
 		startn.point = start;
 		startn.parent_ind = -1;
 		/* CHANGE ME: change this for assignment submission */
-		startn.f = manhattan_dist(start, goal) * heuristic_wt;
+		startn.f = euclidean_dist(start, goal) * heuristic_wt;
 		goaln.point = goal;
 		open.push_back(startn);
 
@@ -211,25 +259,43 @@ namespace SteerLib
 			/* NOTE: get_neighbors calculates each neighbor's g value from the current node */
 			nbrs = get_neighbors(_gSpatialDatabase, closed, closed_ind);
 			for (int i = 0; i < nbrs.size(); i++) {
-				int nbr_ind;
+				//int nbr_ind;
 
 				if (find_node(closed, nbrs[i]) >= 0)
 					continue;
-				if ((nbr_ind = find_node(open, nbrs[i])) >= 0) {
-					if (nbrs[i].g >= open[nbr_ind].g)
-						continue;
+
+				int nbr_ind = find_node(open, nbrs[i]);
+
+				if (nbr_ind < 0) {
+					num_expanded++;
+					nbrs[i].f = nbrs[i].g + euclidean_dist(nbrs[i].point, goal) * heuristic_wt;
+					nbrs[i].parent_ind = closed_ind;					
+					open.push_back(nbrs[i]);
+				} else if (open[nbr_ind].g > nbrs[i].g) {
+					open[nbr_ind].parent_ind = closed_ind;
+					open[nbr_ind].g = nbrs[i].g;
+					open[nbr_ind].f = nbrs[i].g + euclidean_dist(nbrs[i].point, goal) * heuristic_wt;
+				}
+/*				if (( nbr_ind >= 0) && (open[nbr_ind].g > nbrs[i].g)) {
+				//	if (nbrs[i].g >= open[nbr_ind].g)
+				//		continue;
+					open[nbr_ind].parent_ind = closed_ind;
+					open[nbr_ind].g = nbrs[i].g;
+					open[nbr_ind].f = nbrs[i].g + manhattan_dist(nbrs[i].point, goal) * heuristic_wt;		
 				} else {
 					num_expanded++;
 					open.push_back(nbrs[i]);
-					nbr_ind = open.size()-1;
+					//nbr_ind = open.size()-1;
 				}
-
-				open[nbr_ind].parent_ind = closed_ind;
+*/
+				//open[nbr_ind].parent_ind = closed_ind;
 				//if (open[nbr_ind] == closed[closed_ind])
-				open[nbr_ind].g = nbrs[i].g;
+				//open[nbr_ind].g = nbrs[i].g;
 				/* CHANGE ME: change this for assignment submission */
-				open[nbr_ind].f = nbrs[i].g + manhattan_dist(nbrs[i].point, goal) * heuristic_wt;
+				//open[nbr_ind].f = nbrs[i].g + manhattan_dist(nbrs[i].point, goal) * heuristic_wt;
+
 			}
+			//printf("Number of expanded nodes: %d\n", num_expanded);
 		}
 
 		return false;

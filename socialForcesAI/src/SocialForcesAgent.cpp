@@ -10,6 +10,7 @@
 #include "SocialForcesAgent.h"
 #include "SocialForcesAIModule.h"
 #include "SocialForces_Parameters.h"
+#include "planning/AStarPlanner.h"
 // #include <math.h>
 
 
@@ -161,7 +162,7 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	}
 
 	runLongTermPlanning();
-
+//std::cout<<"\n agent position : "<<position()<<"\n";
 	// std::cout << "first waypoint: " << _waypoints.front() << " agents position: " << position() << std::endl;
 	/*
 	 * Must make sure that _waypoints.front() != position(). If they are equal the agent will crash.
@@ -199,11 +200,12 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 			" and current velocity is: " << velocity_ << std::endl;
 #endif
 
-	// std::cout << "Parameter spec: " << _SocialForcesParams << std::endl;
+	//std::cout << "Parameter spec: " << _SocialForcesParams << std::endl;
 	// gEngine->addAgent(this, rvoModule);
 	assert(_forward.length()!=0.0f);
 	assert(_goalQueue.size() != 0);
 	assert(_radius != 0.0f);
+	//std::cout<<"\n agent position : "<<position()<<"\n";
 }
 
 
@@ -290,7 +292,7 @@ Vector SocialForcesAgent::calcGoalForce(Vector _goalDirection, float _dt)
 {
 	Util::Vector pref_force = ((_goalDirection * PREFERED_SPEED) - velocity())/_dt;
 
-    return pref_force/4;
+    return pref_force;
 }
 
 
@@ -528,17 +530,49 @@ bool SocialForcesAgent::reachedCurrentWaypoint()
 {
 
 	if ( !_waypoints.empty())
-	{
-		return (position() - _waypoints.front()).lengthSquared() <= (radius()*radius());
+	{	
+		//std::cout<<"curent pos : "<<position()<<", waypoint : "<<_waypoints.front()<<"\n";
+		//std::cout<<"Way points : "<<(position() - _waypoints.front()).lengthSquared()<<", radius square : "<< (radius()*radius()) <<"\n";
+		if ((position() - _waypoints.front()).lengthSquared() <= 2){//(radius()*radius())) {
+			_waypoints.erase(_waypoints.begin());
+			return true;
+		} else {
+			return false;
+		}
 	}
 	else
-	{
-		false;
+	{	
+		//std::cout<<"No way points\n";
+		return false;
 	}
 
 	// return (position() - _currentLocalTarget).lengthSquared() < (radius()*radius());
 }
 
+bool SocialForcesAgent::crossedCurrentWaypoint()
+{
+
+	if ( _midTermPath.size() > FURTHEST_LOCAL_TARGET_DISTANCE)
+	{	
+	//	std::cout<<"curent pos : "<<position()<<", waypoint : "<<_waypoints.front()<<"\n";
+	//	std::cout<<"Way points : "<<(position() - _midTermPath.at(FURTHEST_LOCAL_TARGET_DISTANCE-2)).lengthSquared()<<", radius square : "<< (position() - _midTermPath.at(FURTHEST_LOCAL_TARGET_DISTANCE)).lengthSquared() <<"\n";
+
+		if ((position() - _midTermPath.at(FURTHEST_LOCAL_TARGET_DISTANCE-2)).lengthSquared() >= (position() - _midTermPath.at(FURTHEST_LOCAL_TARGET_DISTANCE)).lengthSquared()){//(radius()*radius())) {
+		//	std::cout<<"\n\ncrossedCurrentWaypoint\n\n";
+			_waypoints.erase(_waypoints.begin());
+			return true;
+		} else {
+			return false;
+		}
+	}
+	else
+	{	
+		//std::cout<<"No way points\n";
+		return false;
+	}
+
+	// return (position() - _currentLocalTarget).lengthSquared() < (radius()*radius());
+}
 
 bool SocialForcesAgent::hasLineOfSightTo(Util::Point target)
 {
@@ -559,6 +593,9 @@ bool SocialForcesAgent::hasLineOfSightTo(Util::Point target)
 
 void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNumber)
 {
+	//_goalQueue.pop();
+	//std::cout<<"\nupdateAI position : "<<position()<<", "<<_goalQueue.front().targetLocation<<", "<<_goalQueue.back().targetLocation<<"\n\n";
+	//std::cout<<"\n\nupdateAI ENTERED!!\n\n";
 	// std::cout << "_SocialForcesParams.rvo_max_speed " << _SocialForcesParams._SocialForcesParams.rvo_max_speed << std::endl;
 	Util::AutomaticFunctionProfiler profileThisFunction( &SocialForcesGlobals::gPhaseProfilers->aiProfiler );
 	if (!enabled())
@@ -570,26 +607,31 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 
 	SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
 	Util::Vector goalDirection;
-	if ( ! _midTermPath.empty() && (!this->hasLineOfSightTo(goalInfo.targetLocation)) )
+	if ( ! _midTermPath.empty())// && (!this->hasLineOfSightTo(goalInfo.targetLocation)) )
 	{
-		if (reachedCurrentWaypoint())
-		{
+//		std::cout<<"\n\nupdate AI if-1\n\n";
+		if (reachedCurrentWaypoint() || crossedCurrentWaypoint())
+		{	
+//			std::cout<<"\n\nupdate A I if-2\n\n";
 			this->updateMidTermPath();
 		}
-
+//		std::cout<<"\n\nupdate AI if-1 ends : "<<this->_currentLocalTarget<<"\n\n";
 		this->updateLocalTarget();
-
+//		std::cout<<"\n\nupdate AI if-1 after this->_currentLocalTarget : "<<this->_currentLocalTarget<<"\n\n";
 		goalDirection = normalize(_currentLocalTarget - position());
 
 	}
 	else
 	{
+//		std::cout<<"\n\nupdateAI else-1 _midTermPath.empty() : "<<_midTermPath.empty()<<"\n";
+//		std::cout<<"\ngoalInfo.targetLocation : "<<goalInfo.targetLocation<<", position"<<position()<<"\n";
 		goalDirection = normalize(goalInfo.targetLocation - position());
 	}
 
     /*
      *  Goal Force
      */
+    // std::cout << "agent" << id() << " goal direction " << goalDirection << std::endl;
     Util::Vector prefForce = calcGoalForce( goalDirection, dt );
 
     /*
@@ -614,6 +656,7 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 	std::cout << "agent" << id() << " proximity force " << proximityForce << std::endl;
 	std::cout << "agent" << id() << " pref force " << prefForce << std::endl;
 #endif
+	//std::cout << "agent" << id() << " pref force " << prefForce << std::endl;
 	// _velocity = _newVelocity;
 	int alpha=1;
 	if ( repulsionForce.length() > 0.0)
@@ -629,7 +672,9 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 #ifdef _DEBUG_
 	std::cout << "agent" << id() << " speed is " << velocity().length() << std::endl;
 #endif
+//	std::cout<<"Old position : "<<_position<<"\n";
 	_position = position() + (velocity() * dt);
+//	std::cout<<"New position : "<<_position<<"\n";
 	// A grid database update should always be done right after the new position of the agent is calculated
 	/*
 	 * Or when the agent is removed for example its true location will not reflect its location in the grid database.
@@ -692,14 +737,14 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
  */
 void SocialForcesAgent::updateMidTermPath()
 {
-	if ( this->_midTermPath.size() < FURTHEST_LOCAL_TARGET_DISTANCE)
+	/*if ( this->_midTermPath.size() < FURTHEST_LOCAL_TARGET_DISTANCE)
 	{
 		return;
-	}
-	if ( !_waypoints.empty())
-	{
-		_waypoints.erase(_waypoints.begin());
-	}
+	}*/
+	//if ( !_waypoints.empty())
+	//{
+	//	_waypoints.erase(_waypoints.begin());
+	//}
 	// save good path
 	std::vector<Util::Point> tmpPath;
 	// std::cout << "midterm path size " << _midTermPath.size() << std::endl;
@@ -725,17 +770,63 @@ void SocialForcesAgent::updateLocalTarget()
 {
 	Util::Point tmpTarget = this->_goalQueue.front().targetLocation;
 	unsigned int i=0;
+//	std::cout<<"midTermPath in updateLocalTarget : ";
+//	for (int i=0; i < _midTermPath.size(); i++) {
+//		std::cout<<_midTermPath[i]<<", ";
+//	}
+	//std::cout<<"\n agent position : "<<position()<<"\n";
+//	std::cout<<"\n";
+	int j =0;
+	this->_currentLocalTarget = tmpTarget;
 	for (i=0; (i < FURTHEST_LOCAL_TARGET_DISTANCE) &&
 			i < this->_midTermPath.size(); i++ )
 	{
 		tmpTarget = this->_midTermPath.at(i);
 		if ( this->hasLineOfSightTo(tmpTarget) )
 		{
+			j=1;
+//			std::cout<<"Entered if : "<<tmpTarget<<"\n";
 			this->_currentLocalTarget = tmpTarget;
 		}
 	}
+	if (j == 0)
+		std::cout<<"updateLocalTarget to goal : "<<tmpTarget<<", back is : "<<this->_goalQueue.front().targetLocation<<", current is : "<<position()<<"\n";
 }
 
+bool SocialForcesAgent::computeAgentPath(std::vector<Util::Point>& agent_path, Util::Point start_pos) {
+
+//	std::cout<<"\n\nCalculating A* path\n\n";
+	if (aStarPlanner.computePath(agent_path, start_pos, _goalQueue.front().targetLocation, gSpatialDatabase, false)) {
+//		std::cout<<"A* path caluculated\n";
+		SteerLib::AgentGoalInfo goal_pt = _goalQueue.front();
+
+//		std::cout<<"\n initital _goalQueue : "<<_goalQueue.front().targetLocation<<",";
+		while (!_goalQueue.empty()) {
+			_goalQueue.pop();
+			std::cout<<_goalQueue.front().targetLocation<<",";
+		}
+		std::cout<<"\n";
+//		std::cout<<"goal queue emptied\n";
+		SteerLib::AgentGoalInfo path_pt;
+		for(int i=0; i < agent_path.size(); i++){
+			path_pt.targetLocation = agent_path[i];
+			if (i>0)
+				Util::DrawLib::drawLine(agent_path[i - 1], agent_path[i], Util::Color(1.0f, 0.0f, 0.0f),2);
+			_goalQueue.push(path_pt);
+		}
+
+//		std::cout<<"goal queue filled\n";
+		_goalQueue.push(goal_pt);
+		_goalQueue.pop();
+//		std::cout<<"computeAgentPath done\n";
+		return true;
+	} else {
+//		std::cout<<"computeAgentPath false\n";
+		return false;
+	}
+
+	
+}
 
 /**
  * finds a path to the current goal
@@ -744,27 +835,63 @@ void SocialForcesAgent::updateLocalTarget()
 bool SocialForcesAgent::runLongTermPlanning()
 {
 	_midTermPath.clear();
+	_waypoints.clear();
 	//==========================================================================
-
+	
 	// run the main a-star search here
 	std::vector<Util::Point> agentPath;
 	Util::Point pos =  position();
+//	std::cout<<"\n agent position : "<<position()<<"\n";
+	if(! computeAgentPath(agentPath, pos)) {
 
-	if ( !gSpatialDatabase->findPath(pos, _goalQueue.front().targetLocation,
+/*		if ( !gSpatialDatabase->findPath(pos, _goalQueue.front().targetLocation,
+			agentPath, (unsigned int) 50000))
+		{
+			return false;
+		}
+*/		
+	}
+//	std::cout<<"\n agent position : "<<position()<<"\n";
+//	std::cout<<"Test-1\n";
+	/*if ( !gSpatialDatabase->findPath(pos, _goalQueue.front().targetLocation,
 			agentPath, (unsigned int) 50000))
 	{
 		return false;
 	}
-
+	*/
+//std::cout<<"\n agent position : "<<position()<<"\n";
 	for  (int i=1; i <  agentPath.size(); i++)
 	{
+		Util::DrawLib::drawLine(agentPath[i - 1], agentPath[i], Util::Color(1.0f, 0.0f, 0.0f), 2);
 		_midTermPath.push_back(agentPath.at(i));
 		if ((i % FURTHEST_LOCAL_TARGET_DISTANCE) == 0)
 		{
 			_waypoints.push_back(agentPath.at(i));
 		}
 	}
+//	std::cout<<"midTermPath in runLongTermPlanning : ";
+//	for (int i=0; i < _midTermPath.size(); i++) {
+//		std::cout<<_midTermPath[i]<<", ";
+//	}
+	//std::cout<<"\n agent position : "<<position()<<"\n";
+//	std::cout<<"\n";
 	return true;
+
+	
+
+/*
+		//std::cout<<"runLongTermPlanning size : "<<aStarPath.size()<<std::endl;
+	for (int i=1; i <  aStarPath.size(); i++) {
+		//std::cout<<"runLongTermPlanning i : "<<i<<std::endl;
+		_midTermPath.push_back(aStarPath.at(i));
+		if ((i % FURTHEST_LOCAL_TARGET_DISTANCE) == 0)
+		{
+			_waypoints.push_back(aStarPath.at(i));
+		}	
+	}
+
+	return true;
+	*/
 }
 
 
@@ -808,6 +935,7 @@ bool SocialForcesAgent::runLongTermPlanning2()
 void SocialForcesAgent::draw()
 {
 #ifdef ENABLE_GUI
+	//std::cout<<"draw ENABLE_GUI\n";
 	// if the agent is selected, do some annotations just for demonstration
 	if (gEngine->isAgentSelected(this))
 	{
@@ -849,6 +977,7 @@ void SocialForcesAgent::draw()
 	}
 
 #ifdef DRAW_COLLISIONS
+	//std::cout<<"draw DRAW_COLLISIONS\n";
 	std::set<SteerLib::SpatialDatabaseItemPtr> _neighbors;
 	gSpatialDatabase->getItemsInRange(_neighbors, _position.x-(this->_radius * 3), _position.x+(this->_radius * 3),
 			_position.z-(this->_radius * 3), _position.z+(this->_radius * 3), dynamic_cast<SteerLib::SpatialDatabaseItemPtr>(this));
@@ -872,6 +1001,7 @@ void SocialForcesAgent::draw()
 	}
 #endif
 #ifdef DRAW_HISTORIES
+	//std::cout<<"draw DRAW_HISTORIES\n";
 	__oldPositions.push_back(position());
 	int points = 0;
 	float mostPoints = 100.0f;
@@ -887,6 +1017,7 @@ void SocialForcesAgent::draw()
 #endif
 
 #ifdef DRAW_ANNOTATIONS
+	//std::cout<<"draw DRAW_ANNOTATIONS\n";
 
 	for (int i=0; ( _waypoints.size() > 1 ) && (i < (_waypoints.size() - 1)); i++)
 	{

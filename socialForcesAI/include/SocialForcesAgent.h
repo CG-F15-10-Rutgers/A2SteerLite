@@ -20,7 +20,7 @@
 // #include "SimpleAgent.h"
 // #include "SocialForcesAIModule.h"
 #include "SocialForces_Parameters.h"
-
+#include "planning/AStarPlanner.h"
 
 /**
  * @brief Social Forces Agent stuff
@@ -103,9 +103,12 @@ class SocialForcesAgent : public SteerLib::AgentInterface
         std::vector<Util::Point> _waypoints;
 
     private:
+        SteerLib::AStarPlanner aStarPlanner;
+        bool computeAgentPath(std::vector<Util::Point>& agent_path, Util::Point start_pos);
         bool runLongTermPlanning2();
         bool runLongTermPlanning();
         bool reachedCurrentWaypoint();
+        bool crossedCurrentWaypoint();
         void updateMidTermPath();
         bool hasLineOfSightTo(Util::Point point);
 
